@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orçamento Familiar</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="firebase.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #1e1f24;
+      color: #e4e4e4;
+    }
+
+    .header {
+      background: linear-gradient(315deg, #6a11cb 0%, #2575fc 74%);
+      color: white;
+      padding: 1.5rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .export-btn {
+      position: absolute;
+      right: 1rem;
+      top: 1.5rem;
+      background-color: #ffffff33;
+      border: none;
+      padding: 0.5rem 1rem;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .export-btn:hover {
+      background-color: #ffffff55;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      padding: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .painel {
+      background-color: #2a2b32;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      margin-bottom: 1.5rem;
+    }
+
+    input, select, button {
+      padding: 0.7rem 1rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      background-color: #35363f;
+      color: #e4e4e4;
+      border: 1px solid #444;
+    }
+
+    button {
+      background-color: #2575fc;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    button:hover {
+      background-color: #1a5edc;
+      transform: scale(1.02);
+    }
+
+    ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    ul li {
+      background-color: #2f3038;
+      padding: 0.8rem;
+      margin-bottom: 0.5rem;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal {
+      background: #2c2d34;
+      border-radius: 12px;
+      max-width: 750px;
+      width: 95%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 2rem;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      color: #f0f0f0;
+    }
+
+    .divida-detalhe {
+      border-bottom: 1px solid #3e4049;
+      padding: 1rem 0;
+      cursor: pointer;
+      border-left: 4px solid #2575fc;
+      border-radius: 6px;
+      padding-left: 1rem;
+    }
+
+    .divida-info {
+      margin-top: 0.5rem;
+      background: #35363f;
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      display: none;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+    }
+
+    .status-pago { color: #4caf50; font-weight: bold; }
+    .status-pendente { color: #ffa500; font-weight: bold; }
+    .status-atrasada { color: #ff4c4c; font-weight: bold; }
+
+    .filtros {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .filtros select {
+      padding: 0.4rem 0.6rem;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #3a3b44;
+      color: #e4e4e4;
+    }
+
+    canvas {
+      max-width: 100%;
+      margin: 0 auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>Orçamento Familiar</h1>
+    <button class="export-btn" onclick="exportarCSV()">⬇️ Exportar CSV</button>
+  </header>
+
+  <main class="container">
+    <section class="painel irmos">
+      <h2>Irmãos</h2>
+      <form id="formIrmao">
+        <input type="text" id="nomeIrmao" placeholder="Nome do irmão" required>
+        <input type="number" id="rendaIrmao" placeholder="Renda (R$)" required>
+        <button type="submit">Adicionar</button>
+      </form>
+      <ul id="listaIrmaos"></ul>
+    </section>
+
+    <section class="painel dividas">
+      <h2>Dívidas</h2>
+      <form id="formDivida">
+        <input type="text" id="descDivida" placeholder="Descrição da dívida" required>
+        <input type="number" id="valorDivida" placeholder="Valor total (R$)" required>
+        <input type="date" id="dataVencimento" required>
+        <select id="categoriaDivida" required>
+          <option value="Alimentação">Alimentação</option>
+          <option value="Moradia">Moradia</option>
+          <option value="Transporte">Transporte</option>
+          <option value="Educação">Educação</option>
+          <option value="Saúde">Saúde</option>
+          <option value="Lazer">Lazer</option>
+        </select>
+        <div id="checkboxIrmaos"></div>
+        <button type="submit">Criar Dívida</button>
+      </form>
+      <button onclick="abrirModal()">📄 Ver Todas as Dívidas</button>
+    </section>
+
+    <section class="painel poupanca">
+      <h2>Valor Guardado</h2>
+      <form id="formPoupanca">
+        <select id="selectIrmao"></select>
+        <input type="number" id="valorPoupado" placeholder="Valor poupado (R$)" required>
+        <button type="submit">Adicionar Poupança</button>
+      </form>
+      <ul id="listaPoupanca"></ul>
+    </section>
+
+    <section class="painel resumo">
+      <h2>Resumo</h2>
+      <p><strong>Renda Total:</strong> R$ <span id="rendaTotal">0,00</span></p>
+      <canvas id="graficoRenda" width="300" height="300"></canvas>
+    </section>
+
+    <section class="painel grafico">
+      <h2>Distribuição de Dívidas por Categoria</h2>
+      <canvas id="graficoPizza" width="300" height="300"></canvas>
+    </section>
+  </main>
+
+  <div class="modal-overlay" id="modalDividas">
+    <div class="modal">
+      <h2>Dívidas Detalhadas</h2>
+      <div class="filtros">
+        <select id="filtroStatus">
+          <option value="todos">Todos</option>
+          <option value="pago">Pago</option>
+          <option value="pendente">Pendente</option>
+          <option value="atrasada">Atrasada</option>
+        </select>
+        <select id="filtroCategoria">
+          <option value="todas">Todas Categorias</option>
+          <option value="Alimentação">Alimentação</option>
+          <option value="Moradia">Moradia</option>
+          <option value="Transporte">Transporte</option>
+          <option value="Educação">Educação</option>
+          <option value="Saúde">Saúde</option>
+          <option value="Lazer">Lazer</option>
+        </select>
+      </div>
+      <div id="listaModal"></div>
+      <button onclick="fecharModal()">Fechar</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
