@@ -1,6 +1,18 @@
-// script.js atualizado com painel Valor Guardado, badges, exportação e Firebase
+// script.js completo com melhorias visuais, animações e botões para mostrar/ocultar gráficos
 
-// Firebase config separado em firebase.js
+// Inicialização do Firebase está em firebase.js
+
+firebase.auth().onAuthStateChanged(user => {
+  if (!user) {
+    window.location.href = "login.html";
+  }
+});
+
+function logout() {
+  firebase.auth().signOut().then(() => {
+    window.location.href = 'login.html';
+  });
+}
 
 const listaIrmaos = document.getElementById('listaIrmaos');
 const formIrmao = document.getElementById('formIrmao');
@@ -19,7 +31,7 @@ let irmaos = [];
 let dividas = [];
 let poupanca = {}; // { nome: valor }
 
-formIrmao.addEventListener('submit', (e) => {
+formIrmao?.addEventListener('submit', (e) => {
   e.preventDefault();
   const nome = nomeIrmao.value.trim();
   const renda = parseFloat(rendaIrmao.value);
@@ -75,7 +87,7 @@ function excluirIrmao(index) {
   atualizarResumo();
 }
 
-formDivida.addEventListener('submit', (e) => {
+formDivida?.addEventListener('submit', (e) => {
   e.preventDefault();
   const descricao = document.getElementById('descDivida').value;
   const valor = parseFloat(document.getElementById('valorDivida').value);
@@ -102,10 +114,11 @@ function atualizarResumo() {
   atualizarGraficoRenda();
 }
 
-const ctx = document.getElementById('graficoPizza').getContext('2d');
+const ctx = document.getElementById('graficoPizza')?.getContext('2d');
 let chartPizza;
 
 function atualizarGrafico() {
+  if (!ctx) return;
   const categorias = {};
   const cores = [];
 
@@ -128,24 +141,20 @@ function atualizarGrafico() {
     type: 'doughnut',
     data: {
       labels,
-      datasets: [{
-        data: valores,
-        backgroundColor: cores
-      }]
+      datasets: [{ data: valores, backgroundColor: cores }]
     },
     options: {
       responsive: true,
-      plugins: {
-        legend: { position: 'bottom' }
-      }
+      plugins: { legend: { position: 'bottom' } }
     }
   });
 }
 
-const ctxRenda = document.getElementById('graficoRenda').getContext('2d');
+const ctxRenda = document.getElementById('graficoRenda')?.getContext('2d');
 let chartRenda;
 
 function atualizarGraficoRenda() {
+  if (!ctxRenda) return;
   const labels = irmaos.map(i => i.nome);
   const dados = irmaos.map(i => i.renda);
 
@@ -155,11 +164,7 @@ function atualizarGraficoRenda() {
     type: 'bar',
     data: {
       labels,
-      datasets: [{
-        label: 'Renda (R$)',
-        data: dados,
-        backgroundColor: '#36a2eb'
-      }]
+      datasets: [{ label: 'Renda (R$)', data: dados, backgroundColor: '#36a2eb' }]
     },
     options: {
       responsive: true,
@@ -169,7 +174,7 @@ function atualizarGraficoRenda() {
   });
 }
 
-formPoupanca.addEventListener('submit', (e) => {
+formPoupanca?.addEventListener('submit', (e) => {
   e.preventDefault();
   const nome = selectIrmao.value;
   const valor = parseFloat(valorPoupado.value);
@@ -188,6 +193,31 @@ function atualizarListaPoupanca() {
     li.textContent = `${nome} acumulou: R$ ${valor.toFixed(2)}`;
     listaPoupanca.appendChild(li);
   }
+  atualizarGraficoPoupanca();
+}
+
+const ctxPoupanca = document.getElementById('graficoPoupanca')?.getContext('2d');
+let chartPoupanca;
+
+function atualizarGraficoPoupanca() {
+  if (!ctxPoupanca) return;
+  const labels = Object.keys(poupanca);
+  const dados = Object.values(poupanca);
+
+  if (chartPoupanca) chartPoupanca.destroy();
+
+  chartPoupanca = new Chart(ctxPoupanca, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'Valor Guardado (R$)', data: dados, backgroundColor: '#4caf50' }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
 }
 
 function abrirModal() {
@@ -199,11 +229,22 @@ function fecharModal() {
   document.getElementById('modalDividas').style.display = 'none';
 }
 
-document.getElementById('filtroStatus').addEventListener('change', atualizarModal);
-document.getElementById('filtroCategoria').addEventListener('change', atualizarModal);
+document.getElementById('filtroStatus')?.addEventListener('change', atualizarModal);
+document.getElementById('filtroCategoria')?.addEventListener('change', atualizarModal);
+
+document.getElementById('listaModal')?.addEventListener('change', (e) => {
+  if (e.target.matches('input[type="checkbox"][data-divida]')) {
+    const index = e.target.dataset.divida;
+    const nome = e.target.dataset.nome;
+    dividas[index].status[nome] = e.target.checked;
+    atualizarGrafico();
+    atualizarModal();
+  }
+});
 
 function atualizarModal() {
   const container = document.getElementById('listaModal');
+  if (!container) return;
   container.innerHTML = '';
   const filtroStatus = document.getElementById('filtroStatus').value;
   const filtroCategoria = document.getElementById('filtroCategoria').value;
@@ -224,7 +265,6 @@ function atualizarModal() {
 
     const detalhes = document.createElement('div');
     detalhes.className = 'divida-info';
-    detalhes.style.display = 'none';
     detalhes.innerHTML = `
       ${statusTexto}<br>
       Categoria: ${divida.categoria}<br>
@@ -247,16 +287,6 @@ function atualizarModal() {
   });
 }
 
-document.getElementById('listaModal').addEventListener('change', (e) => {
-  if (e.target.matches('input[type="checkbox"][data-divida]')) {
-    const index = e.target.dataset.divida;
-    const nome = e.target.dataset.nome;
-    dividas[index].status[nome] = e.target.checked;
-    atualizarGrafico();
-    atualizarModal();
-  }
-});
-
 function excluirDivida(index) {
   const descricao = dividas[index].descricao;
   db.collection('dividas').where('descricao', '==', descricao).get().then(snapshot => {
@@ -267,70 +297,17 @@ function excluirDivida(index) {
   atualizarModal();
 }
 
-function exportarCSV() {
-  const dados = [
-    ['Descrição', 'Valor', 'Data de Vencimento', 'Categoria', 'Participantes', 'Status']
-  ];
-  dividas.forEach(d => {
-    const status = Object.entries(d.status).map(([nome, pago]) => `${nome}:${pago ? 'Pago' : 'Pendente'}`).join(' | ');
-    dados.push([d.descricao, d.valor, d.dataVenc, d.categoria, d.participantes.join(','), status]);
+// Mostrar/Ocultar Gráficos com animação
+const style = document.createElement('style');
+style.textContent = `.hidden { opacity: 0; height: 0 !important; overflow: hidden; transition: all 0.3s ease; }`;
+document.head.appendChild(style);
+
+document.querySelectorAll('.toggle-grafico')?.forEach(botao => {
+  botao.addEventListener('click', () => {
+    const canvas = botao.previousElementSibling;
+    if (canvas) canvas.classList.toggle('hidden');
   });
-  const csv = dados.map(e => e.join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'dividas.csv';
-  a.click();
-}
-
-// Criação dinâmica de painel separado para gráfico de Valor Guardado
-const container = document.querySelector('.container');
-const painelGraficoPoupanca = document.createElement('section');
-painelGraficoPoupanca.className = 'painel grafico';
-painelGraficoPoupanca.innerHTML = `
-  <h2>Valor Guardado por Irmão</h2>
-  <canvas id="graficoPoupanca" width="300" height="300"></canvas>
-`;
-container.appendChild(painelGraficoPoupanca);
-
-const ctxPoupanca = document.getElementById('graficoPoupanca').getContext('2d');
-let chartPoupanca;
-
-function atualizarGraficoPoupanca() {
-  const labels = Object.keys(poupanca);
-  const dados = Object.values(poupanca);
-
-  if (chartPoupanca) chartPoupanca.destroy();
-
-  chartPoupanca = new Chart(ctxPoupanca, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Valor Guardado (R$)',
-        data: dados,
-        backgroundColor: '#4caf50'
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true } }
-    }
-  });
-}
-
-function atualizarListaPoupanca() {
-  listaPoupanca.innerHTML = '';
-  for (const [nome, valor] of Object.entries(poupanca)) {
-    const li = document.createElement('li');
-    li.textContent = `${nome} acumulou: R$ ${valor.toFixed(2)}`;
-    listaPoupanca.appendChild(li);
-  }
-  atualizarGraficoPoupanca();
-}
-
+});
 
 // Carregar dados do Firebase ao iniciar
 window.addEventListener('DOMContentLoaded', () => {
