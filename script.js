@@ -1,19 +1,18 @@
-// script.js completo com melhorias visuais, animações e botões para mostrar/ocultar gráficos
-
-// Inicialização do Firebase está em firebase.js
-
+// Verificação de autenticação
 firebase.auth().onAuthStateChanged(user => {
   if (!user) {
     window.location.href = "login.html";
   }
 });
 
+// Função de logout
 function logout() {
   firebase.auth().signOut().then(() => {
     window.location.href = 'login.html';
   });
 }
 
+// Elementos do DOM
 const listaIrmaos = document.getElementById('listaIrmaos');
 const formIrmao = document.getElementById('formIrmao');
 const nomeIrmao = document.getElementById('nomeIrmao');
@@ -29,7 +28,7 @@ const listaPoupanca = document.getElementById('listaPoupanca');
 
 let irmaos = [];
 let dividas = [];
-let poupanca = {}; // { nome: valor }
+let poupanca = {};
 
 formIrmao?.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -37,12 +36,13 @@ formIrmao?.addEventListener('submit', (e) => {
   const renda = parseFloat(rendaIrmao.value);
   if (nome && !isNaN(renda)) {
     const irmao = { nome, renda };
-    irmaos.push(irmao);
-    db.collection('irmaos').add(irmao);
-    atualizarIrmaos();
-    atualizarResumo();
-    nomeIrmao.value = '';
-    rendaIrmao.value = '';
+    db.collection('irmaos').add(irmao).then(() => {
+      irmaos.push(irmao);
+      atualizarIrmaos();
+      atualizarResumo();
+      nomeIrmao.value = '';
+      rendaIrmao.value = '';
+    }).catch(console.error);
   }
 });
 
@@ -53,7 +53,7 @@ function atualizarIrmaos() {
 
   irmaos.forEach((irmao, i) => {
     const li = document.createElement('li');
-    li.innerHTML = `${irmao.nome} - R$ ${irmao.renda.toFixed(2)} <button onclick="excluirIrmao(${i})">🗑️</button>`;
+    li.innerHTML = `${irmao.nome} - R$ ${irmao.renda.toFixed(2)} <button onclick="excluirIrmao('${irmao.nome}')">🗑️</button>`;
     listaIrmaos.appendChild(li);
 
     const checkbox = document.createElement('input');
@@ -77,12 +77,11 @@ function atualizarIrmaos() {
   atualizarListaPoupanca();
 }
 
-function excluirIrmao(index) {
-  const nome = irmaos[index].nome;
-  irmaos.splice(index, 1);
+function excluirIrmao(nome) {
+  irmaos = irmaos.filter(i => i.nome !== nome);
   db.collection('irmaos').where('nome', '==', nome).get().then(snapshot => {
     snapshot.forEach(doc => doc.ref.delete());
-  });
+  }).catch(console.error);
   atualizarIrmaos();
   atualizarResumo();
 }
@@ -100,11 +99,13 @@ formDivida?.addEventListener('submit', (e) => {
     const status = {};
     selecionados.forEach(i => status[i] = false);
     const divida = { descricao, valor, dataVenc, categoria, participantes: selecionados, status, porPessoa };
-    dividas.push(divida);
-    db.collection('dividas').add(divida);
-    atualizarGrafico();
-    atualizarModal();
-    formDivida.reset();
+
+    db.collection('dividas').add(divida).then(() => {
+      dividas.push(divida);
+      atualizarGrafico();
+      atualizarModal();
+      formDivida.reset();
+    }).catch(console.error);
   }
 });
 
@@ -180,9 +181,10 @@ formPoupanca?.addEventListener('submit', (e) => {
   const valor = parseFloat(valorPoupado.value);
   if (!isNaN(valor) && valor > 0) {
     poupanca[nome] = (poupanca[nome] || 0) + valor;
-    db.collection('poupanca').add({ nome, valor });
-    atualizarListaPoupanca();
-    valorPoupado.value = '';
+    db.collection('poupanca').add({ nome, valor }).then(() => {
+      atualizarListaPoupanca();
+      valorPoupado.value = '';
+    }).catch(console.error);
   }
 });
 
@@ -291,37 +293,37 @@ function excluirDivida(index) {
   const descricao = dividas[index].descricao;
   db.collection('dividas').where('descricao', '==', descricao).get().then(snapshot => {
     snapshot.forEach(doc => doc.ref.delete());
-  });
+  }).catch(console.error);
   dividas.splice(index, 1);
   atualizarGrafico();
   atualizarModal();
 }
 
-// Mostrar/Ocultar Gráficos com animação
-const style = document.createElement('style');
-style.textContent = `.hidden { opacity: 0; height: 0 !important; overflow: hidden; transition: all 0.3s ease; }`;
-document.head.appendChild(style);
+// Estilo e função para mostrar/ocultar gráficos com animação
+document.head.insertAdjacentHTML("beforeend", `<style>.hidden{opacity:0;height:0!important;overflow:hidden;transition:all 0.3s ease}</style>`);
 
-document.querySelectorAll('.toggle-grafico')?.forEach(botao => {
-  botao.addEventListener('click', () => {
-    const canvas = botao.previousElementSibling;
-    if (canvas) canvas.classList.toggle('hidden');
-  });
-});
+function toggleGrafico(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('hidden');
+}
 
 // Carregar dados do Firebase ao iniciar
 window.addEventListener('DOMContentLoaded', () => {
+  irmaos = [];
+  dividas = [];
+  poupanca = {};
+
   db.collection('irmaos').get().then(snapshot => {
     snapshot.forEach(doc => irmaos.push(doc.data()));
     atualizarIrmaos();
     atualizarResumo();
-  });
+  }).catch(console.error);
 
   db.collection('dividas').get().then(snapshot => {
     snapshot.forEach(doc => dividas.push(doc.data()));
     atualizarGrafico();
     atualizarModal();
-  });
+  }).catch(console.error);
 
   db.collection('poupanca').get().then(snapshot => {
     snapshot.forEach(doc => {
@@ -329,5 +331,5 @@ window.addEventListener('DOMContentLoaded', () => {
       poupanca[nome] = (poupanca[nome] || 0) + valor;
     });
     atualizarListaPoupanca();
-  });
+  }).catch(console.error);
 });

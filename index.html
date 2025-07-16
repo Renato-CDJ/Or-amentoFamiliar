@@ -31,27 +31,40 @@
       position: relative;
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
-    .export-btn, .logout-btn {
-      position: absolute;
-      top: 1.5rem;
-      background-color: rgba(255,255,255,0.15);
-      border: none;
-      padding: 0.5rem 1rem;
-      color: white;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background 0.3s ease;
-    }
-    .export-btn:hover, .logout-btn:hover {
-      background-color: rgba(255,255,255,0.3);
-    }
-    .logout-btn {
-      right: 6rem;
-    }
-    .export-btn {
-      right: 1rem;
-    }
+    .header {
+  background: linear-gradient(to right, #4f46e5, #6366f1);
+  color: white;
+  padding: 1.5rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.header {
+  background: linear-gradient(to right, #4f46e5, #6366f1);
+  color: white;
+  padding: 2.5rem 2rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  position: relative;
+  text-align: center;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.header h1 {
+  margin: 0 auto;
+  font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+
     .container {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -200,10 +213,13 @@
 </head>
 <body>
   <header class="header">
-    <h1><i class="fas fa-coins"></i> Orçamento Familiar</h1>
+  <h1><i class="fas fa-coins"></i> Orçamento Familiar</h1>
+  <div class="header-actions">
     <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Sair</button>
     <button class="export-btn" onclick="exportarCSV()"><i class="fas fa-file-csv"></i> Exportar CSV</button>
-  </header>
+  </div>
+</header>
+
   <main class="container">
     <section class="painel">
       <h2><i class="fas fa-user-friends"></i> Irmãos</h2>
@@ -253,6 +269,13 @@
       <canvas id="graficoPizza" width="300" height="300"></canvas>
       <button class="toggle-grafico" onclick="document.getElementById('graficoPizza').classList.toggle('hidden')">Mostrar/ocultar gráfico</button>
     </section>
+
+    <section class="painel">
+      <h2><i class="fas fa-coins"></i> Gráfico Poupança</h2>
+      <canvas id="graficoPoupanca" width="300" height="300"></canvas>
+      <button class="toggle-grafico" onclick="toggleGrafico('graficoPoupanca')">Mostrar/ocultar gráfico</button>
+    </section>
+
   </main>
   <div class="modal-overlay" id="modalDividas">
     <div class="modal">
