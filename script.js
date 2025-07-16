@@ -12,7 +12,8 @@ function logout() {
   });
 }
 
-let categorias = ['Alimentação', 'Moradia', 'Transporte', 'Educação', 'Saúde', 'Lazer'];
+// ---------- CATEGORIAS ----------
+let categorias = [];
 const categoriaSelect = document.getElementById('categoriaDivida');
 const novaCategoriaInput = document.getElementById('novaCategoria');
 
@@ -29,9 +30,14 @@ function atualizarSelectCategorias() {
 function adicionarCategoria() {
   const nova = novaCategoriaInput.value.trim();
   if (nova && !categorias.includes(nova)) {
-    categorias.push(nova);
-    atualizarSelectCategorias();
-    novaCategoriaInput.value = '';
+    db.collection('categorias').add({ nome: nova }).then(() => {
+      categorias.push(nova);
+      atualizarSelectCategorias();
+      novaCategoriaInput.value = '';
+    }).catch(err => {
+      console.error('Erro ao adicionar categoria:', err);
+      alert('Erro ao salvar categoria.');
+    });
   } else {
     alert('Categoria já existe ou inválida.');
   }
@@ -39,14 +45,20 @@ function adicionarCategoria() {
 
 function removerCategoria() {
   const atual = categoriaSelect.value;
+  if (!atual) return;
   if (confirm(`Deseja realmente remover a categoria "${atual}"?`)) {
-    categorias = categorias.filter(c => c !== atual);
-    atualizarSelectCategorias();
+    db.collection('categorias').where('nome', '==', atual).get().then(snapshot => {
+      snapshot.forEach(doc => doc.ref.delete());
+      categorias = categorias.filter(c => c !== atual);
+      atualizarSelectCategorias();
+    }).catch(err => {
+      console.error('Erro ao remover categoria:', err);
+      alert('Erro ao apagar categoria.');
+    });
   }
 }
 
-
-// Elementos do DOM
+// ---------- DOM ELEMENTS ----------
 const listaIrmaos = document.getElementById('listaIrmaos');
 const formIrmao = document.getElementById('formIrmao');
 const nomeIrmao = document.getElementById('nomeIrmao');
@@ -54,7 +66,6 @@ const rendaIrmao = document.getElementById('rendaIrmao');
 const rendaTotal = document.getElementById('rendaTotal');
 const checkboxIrmaos = document.getElementById('checkboxIrmaos');
 const formDivida = document.getElementById('formDivida');
-const categoriaDivida = document.getElementById('categoriaDivida');
 const selectIrmao = document.getElementById('selectIrmao');
 const formPoupanca = document.getElementById('formPoupanca');
 const valorPoupado = document.getElementById('valorPoupado');
@@ -64,6 +75,7 @@ let irmaos = [];
 let dividas = [];
 let poupanca = {};
 
+// ---------- IRMÃOS ----------
 formIrmao?.addEventListener('submit', (e) => {
   e.preventDefault();
   const nome = nomeIrmao.value.trim();
@@ -87,9 +99,16 @@ function atualizarIrmaos() {
 
   irmaos.forEach((irmao, i) => {
     const li = document.createElement('li');
-    li.innerHTML = `${irmao.nome} - R$ ${irmao.renda.toFixed(2)} <button onclick="excluirIrmao('${irmao.nome}')">🗑️</button>`;
+    li.innerHTML = `
+      <strong>${irmao.nome}</strong> - R$ ${irmao.renda.toFixed(2)}
+      <div class="acoes-irmao">
+        <button onclick="editarIrmao('${irmao.nome}')">✏️</button>
+        <button onclick="excluirIrmao('${irmao.nome}')">🗑️</button>
+      </div>
+    `;
     listaIrmaos.appendChild(li);
 
+    // checkbox para dívidas
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.id = `irmao-${i}`;
@@ -100,16 +119,46 @@ function atualizarIrmaos() {
     label.htmlFor = `irmao-${i}`;
     label.appendChild(checkbox);
     label.append(` ${irmao.nome}`);
-
     checkboxIrmaos.appendChild(label);
 
+    // opção para poupança
     const option = document.createElement('option');
     option.value = irmao.nome;
     option.textContent = irmao.nome;
     selectIrmao.appendChild(option);
   });
+
   atualizarListaPoupanca();
 }
+
+function editarIrmao(nome) {
+  const novoValor = prompt(`Editar renda de ${nome} (R$):`);
+  const renda = parseFloat(novoValor);
+  if (!isNaN(renda) && renda >= 0) {
+    // Atualiza local
+    const index = irmaos.findIndex(i => i.nome === nome);
+    if (index !== -1) {
+      irmaos[index].renda = renda;
+    }
+
+    // Atualiza Firestore
+    db.collection('irmaos').where('nome', '==', nome).get().then(snapshot => {
+      snapshot.forEach(doc => doc.ref.update({ renda }));
+      atualizarIrmaos();
+      atualizarResumo();
+    });
+  }
+}
+
+function toggleListaIrmaos() {
+  const ul = document.getElementById('listaIrmaos');
+  if (ul.style.display === 'none') {
+    ul.style.display = 'block';
+  } else {
+    ul.style.display = 'none';
+  }
+}
+
 
 function excluirIrmao(nome) {
   irmaos = irmaos.filter(i => i.nome !== nome);
@@ -120,12 +169,13 @@ function excluirIrmao(nome) {
   atualizarResumo();
 }
 
+// ---------- DÍVIDAS ----------
 formDivida?.addEventListener('submit', (e) => {
   e.preventDefault();
   const descricao = document.getElementById('descDivida').value;
   const valor = parseFloat(document.getElementById('valorDivida').value);
   const dataVenc = document.getElementById('dataVencimento').value;
-  const categoria = categoriaDivida.value;
+  const categoria = categoriaSelect.value;
   const selecionados = Array.from(document.querySelectorAll('input[name="irmaosDivida"]:checked')).map(cb => cb.value);
 
   if (descricao && !isNaN(valor) && selecionados.length > 0) {
@@ -149,25 +199,23 @@ function atualizarResumo() {
   atualizarGraficoRenda();
 }
 
+// ---------- GRÁFICO DE DÍVIDAS ----------
 const ctx = document.getElementById('graficoPizza')?.getContext('2d');
 let chartPizza;
 
 function atualizarGrafico() {
   if (!ctx) return;
-  const categorias = {};
+
+  const labels = [];
+  const valores = [];
   const cores = [];
 
-  dividas.forEach(d => {
-    categorias[d.categoria] = (categorias[d.categoria] || 0) + d.valor;
-  });
+  dividas.forEach((divida, i) => {
+    labels.push(`${divida.descricao} (${divida.categoria})`);
+    valores.push(divida.valor);
 
-  const labels = Object.keys(categorias);
-  const valores = Object.values(categorias);
-
-  labels.forEach(cat => {
-    const todasPagas = dividas.filter(d => d.categoria === cat)
-      .every(d => Object.values(d.status).every(pago => pago));
-    cores.push(todasPagas ? '#4caf50' : '#ff6384');
+    const totalmentePaga = Object.values(divida.status).every(pago => pago);
+    cores.push(totalmentePaga ? '#4caf50' : '#ff6384');
   });
 
   if (chartPizza) chartPizza.destroy();
@@ -176,15 +224,31 @@ function atualizarGrafico() {
     type: 'doughnut',
     data: {
       labels,
-      datasets: [{ data: valores, backgroundColor: cores }]
+      datasets: [{
+        data: valores,
+        backgroundColor: cores
+      }]
     },
     options: {
       responsive: true,
-      plugins: { legend: { position: 'bottom' } }
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const valor = context.parsed;
+              return `R$ ${valor.toFixed(2)}`;
+            }
+          }
+        }
+      }
     }
   });
 }
 
+
+
+// ---------- GRÁFICO DE RENDA ----------
 const ctxRenda = document.getElementById('graficoRenda')?.getContext('2d');
 let chartRenda;
 
@@ -209,6 +273,7 @@ function atualizarGraficoRenda() {
   });
 }
 
+// ---------- POUPANÇA ----------
 formPoupanca?.addEventListener('submit', (e) => {
   e.preventDefault();
   const nome = selectIrmao.value;
@@ -256,6 +321,7 @@ function atualizarGraficoPoupanca() {
   });
 }
 
+// ---------- MODAL DE DÍVIDAS ----------
 function abrirModal() {
   document.getElementById('modalDividas').style.display = 'flex';
   atualizarModal();
@@ -333,7 +399,7 @@ function excluirDivida(index) {
   atualizarModal();
 }
 
-// Estilo e função para mostrar/ocultar gráficos com animação
+// ---------- EXTRAS ----------
 document.head.insertAdjacentHTML("beforeend", `<style>.hidden{opacity:0;height:0!important;overflow:hidden;transition:all 0.3s ease}</style>`);
 
 function toggleGrafico(id) {
@@ -341,11 +407,46 @@ function toggleGrafico(id) {
   if (el) el.classList.toggle('hidden');
 }
 
-// Carregar dados do Firebase ao iniciar
+function exportarCSV() {
+  let csv = 'Nome,Renda,Poupança\n';
+  irmaos.forEach(i => {
+    const poupado = poupanca[i.nome] || 0;
+    csv += `${i.nome},${i.renda},${poupado}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'relatorio.csv';
+  a.click();
+}
+
+// ---------- LOAD INICIAL ----------
 window.addEventListener('DOMContentLoaded', () => {
   irmaos = [];
   dividas = [];
   poupanca = {};
+
+  db.collection('categorias').get().then(snapshot => {
+    categorias = [];
+    snapshot.forEach(doc => {
+      const { nome } = doc.data();
+      if (nome) categorias.push(nome);
+    });
+    atualizarSelectCategorias();
+  }).catch(console.error);
+
+  const filtroCategoria = document.getElementById('filtroCategoria');
+if (filtroCategoria) {
+  filtroCategoria.innerHTML = '<option value="todas">Todas</option>';
+  categorias.forEach(cat => {
+    const option = document.createElement('option');
+    option.value = cat;
+    option.textContent = cat;
+    filtroCategoria.appendChild(option);
+  });
+}
+
 
   db.collection('irmaos').get().then(snapshot => {
     snapshot.forEach(doc => irmaos.push(doc.data()));
@@ -367,6 +468,3 @@ window.addEventListener('DOMContentLoaded', () => {
     atualizarListaPoupanca();
   }).catch(console.error);
 });
-
-atualizarSelectCategorias();
-
