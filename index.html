@@ -78,6 +78,40 @@
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
+
+    .categoria-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.categoria-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.categoria-actions input {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+}
+
+.categoria-actions button {
+  background: #6366f1;
+  border: none;
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.categoria-actions button:hover {
+  background: #4f46e5;
+}
+
     .painel {
       background-color: white;
       border-radius: 12px;
@@ -236,14 +270,15 @@
         <input type="text" id="descDivida" placeholder="Descrição da dívida" required>
         <input type="number" id="valorDivida" placeholder="Valor total (R$)" required>
         <input type="date" id="dataVencimento" required>
-        <select id="categoriaDivida" required>
-          <option value="Alimentação">Alimentação</option>
-          <option value="Moradia">Moradia</option>
-          <option value="Transporte">Transporte</option>
-          <option value="Educação">Educação</option>
-          <option value="Saúde">Saúde</option>
-          <option value="Lazer">Lazer</option>
-        </select>
+        <div class="categoria-container">
+  <select id="categoriaDivida" required></select>
+  <div class="categoria-actions">
+    <input type="text" id="novaCategoria" placeholder="Nova categoria" />
+    <button type="button" onclick="adicionarCategoria()">➕</button>
+    <button type="button" onclick="removerCategoria()">🗑️</button>
+  </div>
+</div>
+
         <div id="checkboxIrmaos"></div>
         <button type="submit">Criar Dívida</button>
       </form>

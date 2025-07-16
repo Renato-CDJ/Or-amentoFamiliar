@@ -12,6 +12,40 @@ function logout() {
   });
 }
 
+let categorias = ['Alimentação', 'Moradia', 'Transporte', 'Educação', 'Saúde', 'Lazer'];
+const categoriaSelect = document.getElementById('categoriaDivida');
+const novaCategoriaInput = document.getElementById('novaCategoria');
+
+function atualizarSelectCategorias() {
+  categoriaSelect.innerHTML = '';
+  categorias.forEach(cat => {
+    const option = document.createElement('option');
+    option.value = cat;
+    option.textContent = cat;
+    categoriaSelect.appendChild(option);
+  });
+}
+
+function adicionarCategoria() {
+  const nova = novaCategoriaInput.value.trim();
+  if (nova && !categorias.includes(nova)) {
+    categorias.push(nova);
+    atualizarSelectCategorias();
+    novaCategoriaInput.value = '';
+  } else {
+    alert('Categoria já existe ou inválida.');
+  }
+}
+
+function removerCategoria() {
+  const atual = categoriaSelect.value;
+  if (confirm(`Deseja realmente remover a categoria "${atual}"?`)) {
+    categorias = categorias.filter(c => c !== atual);
+    atualizarSelectCategorias();
+  }
+}
+
+
 // Elementos do DOM
 const listaIrmaos = document.getElementById('listaIrmaos');
 const formIrmao = document.getElementById('formIrmao');
@@ -333,3 +367,6 @@ window.addEventListener('DOMContentLoaded', () => {
     atualizarListaPoupanca();
   }).catch(console.error);
 });
+
+atualizarSelectCategorias();
+
