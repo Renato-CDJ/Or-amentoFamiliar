@@ -4,64 +4,124 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Login - Orçamento Familiar</title>
+
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
   <script src="firebase.js"></script>
+
+  <!-- Fontes e ícones -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <!-- Estilo -->
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      background-color: #1e1f24;
-      color: #fff;
-      font-family: Arial, sans-serif;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(145deg, #eef1f7, #e4e7ef);
       display: flex;
       align-items: center;
       justify-content: center;
       height: 100vh;
-      margin: 0;
+      overflow: hidden;
     }
-    .login-container {
-      background: #2a2b32;
-      padding: 2rem;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.3);
-      max-width: 400px;
+
+    .login-wrapper {
+      background: white;
+      padding: 3.5rem 2rem;
+      border-radius: 14px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
       width: 100%;
+      max-width: 520px;
+      animation: fadeInUp 0.5s ease;
     }
-    h1 {
+
+    .login-header {
       text-align: center;
-      margin-bottom: 1rem;
+      margin-bottom: 2rem;
     }
+
+    .login-header h1 {
+      font-size: 1.8rem;
+      color: #4f46e5;
+    }
+
+    .login-header i {
+      font-size: 1.6rem;
+      margin-right: 0.5rem;
+      color: #4f46e5;
+    }
+
     input {
       width: 100%;
-      padding: 0.7rem;
+      padding: 0.75rem 1rem;
       margin-bottom: 1rem;
-      border: none;
       border-radius: 8px;
-      background-color: #35363f;
-      color: #fff;
+      border: 1px solid #d1d5db;
+      font-size: 1rem;
+      transition: border 0.3s ease;
     }
+
+    input:focus {
+      border-color: #6366f1;
+      outline: none;
+    }
+
     button {
       width: 100%;
-      padding: 0.7rem;
-      background: #2575fc;
+      background: #6366f1;
+      color: white;
+      font-weight: 600;
+      padding: 0.75rem 1rem;
       border: none;
       border-radius: 8px;
-      color: white;
       font-size: 1rem;
       cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s ease;
     }
+
     button:hover {
-      background-color: #1a5edc;
+      background: #4f46e5;
+      transform: scale(1.02);
     }
+
     .erro {
-      color: #ff4c4c;
-      margin-top: 0.5rem;
+      color: #dc2626;
+      font-size: 0.9rem;
       text-align: center;
+      margin-top: 0.75rem;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        transform: translateY(40px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .login-wrapper {
+        padding: 2rem 1.2rem;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="login-container">
-    <h1>Entrar</h1>
+
+  <div class="login-wrapper">
+    <div class="login-header">
+      <h1><i class="fas fa-coins"></i>Orçamento Familiar</h1>
+    </div>
     <input type="email" id="email" placeholder="Email" required />
     <input type="password" id="senha" placeholder="Senha" required />
     <button onclick="login()">Entrar</button>
@@ -78,10 +138,11 @@
         .then(() => {
           window.location.href = 'index.html';
         })
-        .catch(err => {
+        .catch(() => {
           erro.textContent = 'Email ou senha inválidos.';
         });
     }
   </script>
+
 </body>
 </html>
