@@ -94,9 +94,10 @@ function renderizarAcompanhamentos() {
           <div style="display:flex; gap:0.5rem; align-items:center;">
             <span class="${p.quitado ? 'status-quitado' : 'status-pendente'}">${p.quitado ? 'Quitado' : 'Pendente'}</span>
             <button onclick="removerParcelamento('${p.id}')" style="border:none; background:none; cursor:pointer; color:#ef4444; font-size:1.1rem;">🗑️</button>
+            <button onclick="toggleParcelas('${p.id}')" style="border:none; background:#e0e7ff; color:#4338ca; padding:0.3rem 0.6rem; border-radius:6px; cursor:pointer; font-size:0.85rem;">Ocultar</button>
           </div>
         </div>
-        <div style="padding:0.8rem 1rem;">
+        <div id="parcelas-${p.id}" style="padding:0.8rem 1rem;">
           <div style="margin-bottom:0.5rem;">Progresso: ${pagas}/${p.qtdTotal} parcelas</div>
           <div style="background:#e5e7eb; height:8px; border-radius:4px; overflow:hidden; margin-bottom:0.8rem;">
             <div class="progress-bar" style="width:${percent}%; background:#4f46e5; height:100%;"></div>
@@ -114,6 +115,20 @@ function renderizarAcompanhamentos() {
       div.appendChild(card);
     });
 }
+
+// Função para ocultar/mostrar apenas as parcelas de um item
+function toggleParcelas(id) {
+  const parcelasDiv = document.getElementById(`parcelas-${id}`);
+  const btn = event.target;
+  if (parcelasDiv.style.display === 'none') {
+    parcelasDiv.style.display = 'block';
+    btn.textContent = 'Ocultar';
+  } else {
+    parcelasDiv.style.display = 'none';
+    btn.textContent = 'Mostrar';
+  }
+}
+window.toggleParcelas = toggleParcelas;
 
 // 📊 Resumo
 function atualizarResumo() {
@@ -181,10 +196,3 @@ window.removerParcelamento = removerParcelamento;
 // 🔍 Filtros
 document.getElementById('buscaNome').addEventListener('input', renderizarAcompanhamentos);
 document.getElementById('filtroStatus').addEventListener('change', renderizarAcompanhamentos);
-
-// 👁️ Botão de ocultar/mostrar lista
-document.getElementById('toggleLista').addEventListener('click', function () {
-  const lista = document.getElementById('acompanhamento');
-  lista.classList.toggle('hidden');
-  this.textContent = lista.classList.contains('hidden') ? 'Mostrar' : 'Ocultar';
-});

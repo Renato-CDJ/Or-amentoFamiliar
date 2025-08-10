@@ -1,7 +1,14 @@
+
+// Variável global para UID do usuário
+let uid = null;
+
 // Verificação de autenticação
 firebase.auth().onAuthStateChanged(user => {
   if (!user) {
     window.location.href = "login.html";
+  } else {
+    uid = user.uid;
+    carregarDadosIniciais();
   }
 });
 
@@ -18,6 +25,7 @@ const categoriaSelect = document.getElementById('categoriaDivida');
 const novaCategoriaInput = document.getElementById('novaCategoria');
 
 function atualizarSelectCategorias() {
+  if (!categoriaSelect) return;
   categoriaSelect.innerHTML = '';
   categorias.forEach(cat => {
     const option = document.createElement('option');
@@ -30,10 +38,19 @@ function atualizarSelectCategorias() {
 function adicionarCategoria() {
   const nova = novaCategoriaInput.value.trim();
   if (nova && !categorias.includes(nova)) {
-    db.collection('categorias').add({ nome: nova }).then(() => {
+    // salva a categoria com uid
+    db.collection('categorias').add({ nome: nova, uid }).then(() => {
       categorias.push(nova);
       atualizarSelectCategorias();
       novaCategoriaInput.value = '';
+      // atualiza filtroCategoria caso exista
+      const filtroCategoria = document.getElementById('filtroCategoria');
+      if (filtroCategoria) {
+        const opt = document.createElement('option');
+        opt.value = nova;
+        opt.textContent = nova;
+        filtroCategoria.appendChild(opt);
+      }
     }).catch(err => {
       console.error('Erro ao adicionar categoria:', err);
       alert('Erro ao salvar categoria.');
@@ -44,17 +61,28 @@ function adicionarCategoria() {
 }
 
 function removerCategoria() {
-  const atual = categoriaSelect.value;
+  const atual = categoriaSelect?.value;
   if (!atual) return;
   if (confirm(`Deseja realmente remover a categoria "${atual}"?`)) {
-    db.collection('categorias').where('nome', '==', atual).get().then(snapshot => {
-      snapshot.forEach(doc => doc.ref.delete());
-      categorias = categorias.filter(c => c !== atual);
-      atualizarSelectCategorias();
-    }).catch(err => {
-      console.error('Erro ao remover categoria:', err);
-      alert('Erro ao apagar categoria.');
-    });
+    db.collection('categorias')
+      .where('uid', '==', uid)
+      .where('nome', '==', atual)
+      .get()
+      .then(snapshot => {
+        snapshot.forEach(doc => doc.ref.delete());
+        categorias = categorias.filter(c => c !== atual);
+        atualizarSelectCategorias();
+        // atualizar filtroCategoria
+        const filtroCategoria = document.getElementById('filtroCategoria');
+        if (filtroCategoria) {
+          Array.from(filtroCategoria.options).forEach(opt => {
+            if (opt.value === atual) filtroCategoria.removeChild(opt);
+          });
+        }
+      }).catch(err => {
+        console.error('Erro ao remover categoria:', err);
+        alert('Erro ao apagar categoria.');
+      });
   }
 }
 
@@ -81,7 +109,7 @@ formIrmao?.addEventListener('submit', (e) => {
   const nome = nomeIrmao.value.trim();
   const renda = parseFloat(rendaIrmao.value);
   if (nome && !isNaN(renda)) {
-    const irmao = { nome, renda };
+    const irmao = { nome, renda, uid };
     db.collection('irmaos').add(irmao).then(() => {
       irmaos.push(irmao);
       atualizarIrmaos();
@@ -93,6 +121,7 @@ formIrmao?.addEventListener('submit', (e) => {
 });
 
 function atualizarIrmaos() {
+  if (!listaIrmaos || !checkboxIrmaos || !selectIrmao) return;
   listaIrmaos.innerHTML = '';
   checkboxIrmaos.innerHTML = '';
   selectIrmao.innerHTML = '';
@@ -141,17 +170,23 @@ function editarIrmao(nome) {
       irmaos[index].renda = renda;
     }
 
-    // Atualiza Firestore
-    db.collection('irmaos').where('nome', '==', nome).get().then(snapshot => {
-      snapshot.forEach(doc => doc.ref.update({ renda }));
-      atualizarIrmaos();
-      atualizarResumo();
-    });
+    // Atualiza Firestore filtrando por uid + nome
+    db.collection('irmaos')
+      .where('uid', '==', uid)
+      .where('nome', '==', nome)
+      .get()
+      .then(snapshot => {
+        snapshot.forEach(doc => doc.ref.update({ renda }));
+        atualizarIrmaos();
+        atualizarResumo();
+      })
+      .catch(console.error);
   }
 }
 
 function toggleListaIrmaos() {
   const ul = document.getElementById('listaIrmaos');
+  if (!ul) return;
   if (ul.style.display === 'none') {
     ul.style.display = 'block';
   } else {
@@ -159,14 +194,17 @@ function toggleListaIrmaos() {
   }
 }
 
-
 function excluirIrmao(nome) {
   irmaos = irmaos.filter(i => i.nome !== nome);
-  db.collection('irmaos').where('nome', '==', nome).get().then(snapshot => {
-    snapshot.forEach(doc => doc.ref.delete());
-  }).catch(console.error);
-  atualizarIrmaos();
-  atualizarResumo();
+  db.collection('irmaos')
+    .where('uid', '==', uid)
+    .where('nome', '==', nome)
+    .get()
+    .then(snapshot => {
+      snapshot.forEach(doc => doc.ref.delete());
+      atualizarIrmaos();
+      atualizarResumo();
+    }).catch(console.error);
 }
 
 // ---------- DÍVIDAS ----------
@@ -175,14 +213,14 @@ formDivida?.addEventListener('submit', (e) => {
   const descricao = document.getElementById('descDivida').value;
   const valor = parseFloat(document.getElementById('valorDivida').value);
   const dataVenc = document.getElementById('dataVencimento').value;
-  const categoria = categoriaSelect.value;
+  const categoria = categoriaSelect?.value;
   const selecionados = Array.from(document.querySelectorAll('input[name="irmaosDivida"]:checked')).map(cb => cb.value);
 
   if (descricao && !isNaN(valor) && selecionados.length > 0) {
     const porPessoa = valor / selecionados.length;
     const status = {};
     selecionados.forEach(i => status[i] = false);
-    const divida = { descricao, valor, dataVenc, categoria, participantes: selecionados, status, porPessoa };
+    const divida = { descricao, valor, dataVenc, categoria, participantes: selecionados, status, porPessoa, uid };
 
     db.collection('dividas').add(divida).then(() => {
       dividas.push(divida);
@@ -195,7 +233,7 @@ formDivida?.addEventListener('submit', (e) => {
 
 function atualizarResumo() {
   const totalRenda = irmaos.reduce((soma, i) => soma + i.renda, 0);
-  rendaTotal.textContent = totalRenda.toFixed(2);
+  if (rendaTotal) rendaTotal.textContent = totalRenda.toFixed(2);
   atualizarGraficoRenda();
 }
 
@@ -246,8 +284,6 @@ function atualizarGrafico() {
   });
 }
 
-
-
 // ---------- GRÁFICO DE RENDA ----------
 const ctxRenda = document.getElementById('graficoRenda')?.getContext('2d');
 let chartRenda;
@@ -280,7 +316,7 @@ formPoupanca?.addEventListener('submit', (e) => {
   const valor = parseFloat(valorPoupado.value);
   if (!isNaN(valor) && valor > 0) {
     poupanca[nome] = (poupanca[nome] || 0) + valor;
-    db.collection('poupanca').add({ nome, valor }).then(() => {
+    db.collection('poupanca').add({ nome, valor, uid }).then(() => {
       atualizarListaPoupanca();
       valorPoupado.value = '';
     }).catch(console.error);
@@ -288,6 +324,7 @@ formPoupanca?.addEventListener('submit', (e) => {
 });
 
 function atualizarListaPoupanca() {
+  if (!listaPoupanca) return;
   listaPoupanca.innerHTML = '';
   for (const [nome, valor] of Object.entries(poupanca)) {
     const li = document.createElement('li');
@@ -323,24 +360,41 @@ function atualizarGraficoPoupanca() {
 
 // ---------- MODAL DE DÍVIDAS ----------
 function abrirModal() {
-  document.getElementById('modalDividas').style.display = 'flex';
+  const modal = document.getElementById('modalDividas');
+  if (!modal) return;
+  modal.style.display = 'flex';
   atualizarModal();
 }
 
 function fecharModal() {
-  document.getElementById('modalDividas').style.display = 'none';
+  const modal = document.getElementById('modalDividas');
+  if (!modal) return;
+  modal.style.display = 'none';
 }
 
 document.getElementById('filtroStatus')?.addEventListener('change', atualizarModal);
 document.getElementById('filtroCategoria')?.addEventListener('change', atualizarModal);
 
+// Quando marcar/ desmarcar checkboxes no modal, atualiza o objeto local e persiste no Firestore
 document.getElementById('listaModal')?.addEventListener('change', (e) => {
   if (e.target.matches('input[type="checkbox"][data-divida]')) {
-    const index = e.target.dataset.divida;
+    const index = parseInt(e.target.dataset.divida, 10);
     const nome = e.target.dataset.nome;
+    if (isNaN(index)) return;
     dividas[index].status[nome] = e.target.checked;
-    atualizarGrafico();
-    atualizarModal();
+    // Persistir alteração de status no Firestore (procura doc por uid + descricao)
+    const descricao = dividas[index].descricao;
+    db.collection('dividas')
+      .where('uid', '==', uid)
+      .where('descricao', '==', descricao)
+      .get()
+      .then(snapshot => {
+        snapshot.forEach(docSnap => {
+          docSnap.ref.update({ status: dividas[index].status }).catch(console.error);
+        });
+        atualizarGrafico();
+        atualizarModal();
+      }).catch(console.error);
   }
 });
 
@@ -348,14 +402,14 @@ function atualizarModal() {
   const container = document.getElementById('listaModal');
   if (!container) return;
   container.innerHTML = '';
-  const filtroStatus = document.getElementById('filtroStatus').value;
-  const filtroCategoria = document.getElementById('filtroCategoria').value;
+  const filtroStatus = document.getElementById('filtroStatus')?.value || 'todos';
+  const filtroCategoria = document.getElementById('filtroCategoria')?.value || 'todas';
   const hoje = new Date();
 
   dividas.forEach((divida, index) => {
     const venc = new Date(divida.dataVenc);
     const atrasada = venc < hoje;
-    const todosPagos = Object.values(divida.status).every(p => p);
+    const todosPagos = Object.values(divida.status || {}).every(p => p);
     let status = todosPagos ? 'pago' : (atrasada ? 'atrasada' : 'pendente');
 
     if ((filtroStatus !== 'todos' && filtroStatus !== status) ||
@@ -373,7 +427,7 @@ function atualizarModal() {
       Vencimento: ${divida.dataVenc}<br>
       Valor: R$ ${divida.valor.toFixed(2)}<br>
       ${divida.participantes.map(nome => {
-        const checked = divida.status[nome] ? 'checked' : '';
+        const checked = divida.status && divida.status[nome] ? 'checked' : '';
         return `<label><input type="checkbox" data-divida="${index}" data-nome="${nome}" ${checked}> ${nome} - R$ ${divida.porPessoa.toFixed(2)}</label>`;
       }).join('<br>')}
       <br><button onclick="excluirDivida(${index})">Excluir Dívida</button>
@@ -381,6 +435,7 @@ function atualizarModal() {
 
     div.innerHTML = `<h3>${divida.descricao}</h3>`;
     div.appendChild(detalhes);
+    detalhes.style.display = 'none';
     div.addEventListener('click', () => {
       detalhes.style.display = detalhes.style.display === 'none' ? 'block' : 'none';
     });
@@ -391,12 +446,17 @@ function atualizarModal() {
 
 function excluirDivida(index) {
   const descricao = dividas[index].descricao;
-  db.collection('dividas').where('descricao', '==', descricao).get().then(snapshot => {
-    snapshot.forEach(doc => doc.ref.delete());
-  }).catch(console.error);
-  dividas.splice(index, 1);
-  atualizarGrafico();
-  atualizarModal();
+  db.collection('dividas')
+    .where('uid', '==', uid)
+    .where('descricao', '==', descricao)
+    .get()
+    .then(snapshot => {
+      snapshot.forEach(doc => doc.ref.delete());
+      // remover localmente
+      dividas.splice(index, 1);
+      atualizarGrafico();
+      atualizarModal();
+    }).catch(console.error);
 }
 
 // ---------- EXTRAS ----------
@@ -422,49 +482,58 @@ function exportarCSV() {
 }
 
 // ---------- LOAD INICIAL ----------
-window.addEventListener('DOMContentLoaded', () => {
+function carregarDadosIniciais() {
+  categorias = [];
   irmaos = [];
   dividas = [];
   poupanca = {};
 
-  db.collection('categorias').get().then(snapshot => {
+  // categorias do usuário
+  db.collection('categorias').where('uid', '==', uid).get().then(snapshot => {
     categorias = [];
     snapshot.forEach(doc => {
       const { nome } = doc.data();
       if (nome) categorias.push(nome);
     });
     atualizarSelectCategorias();
+
+    // preencher filtroCategoria se existir
+    const filtroCategoria = document.getElementById('filtroCategoria');
+    if (filtroCategoria) {
+      filtroCategoria.innerHTML = '<option value="todas">Todas</option>';
+      categorias.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat;
+        option.textContent = cat;
+        filtroCategoria.appendChild(option);
+      });
+    }
   }).catch(console.error);
 
-  const filtroCategoria = document.getElementById('filtroCategoria');
-if (filtroCategoria) {
-  filtroCategoria.innerHTML = '<option value="todas">Todas</option>';
-  categorias.forEach(cat => {
-    const option = document.createElement('option');
-    option.value = cat;
-    option.textContent = cat;
-    filtroCategoria.appendChild(option);
-  });
-}
-
-
-  db.collection('irmaos').get().then(snapshot => {
+  // irmãos (do usuário)
+  db.collection('irmaos').where('uid', '==', uid).get().then(snapshot => {
+    irmaos = [];
     snapshot.forEach(doc => irmaos.push(doc.data()));
     atualizarIrmaos();
     atualizarResumo();
   }).catch(console.error);
 
-  db.collection('dividas').get().then(snapshot => {
+  // dívidas (do usuário)
+  db.collection('dividas').where('uid', '==', uid).get().then(snapshot => {
+    dividas = [];
     snapshot.forEach(doc => dividas.push(doc.data()));
     atualizarGrafico();
     atualizarModal();
   }).catch(console.error);
 
-  db.collection('poupanca').get().then(snapshot => {
+  // poupanca (do usuário)
+  db.collection('poupanca').where('uid', '==', uid).get().then(snapshot => {
+    poupanca = {};
     snapshot.forEach(doc => {
       const { nome, valor } = doc.data();
       poupanca[nome] = (poupanca[nome] || 0) + valor;
     });
     atualizarListaPoupanca();
   }).catch(console.error);
-});
+}
+
