@@ -81,6 +81,25 @@
     button:hover {
       background: #4338ca;
     }
+    /* Área do gráfico no estilo da imagem */
+    .grafico-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .grafico-legenda {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      font-size: 0.95rem;
+    }
+    .grafico-legenda span {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      min-width: 180px;
+    }
   </style>
 </head>
 <body>
@@ -122,13 +141,11 @@
       </div>
     </div>
 
-    <!-- Gráficos -->
-    <div class="grid" style="margin-top:1rem;">
-      <div class="card">
-        <canvas id="graficoPizza" style="height:300px;"></canvas>
-      </div>
-      <div class="card">
-        <canvas id="graficoBarra" style="height:300px;"></canvas>
+    <!-- Gráfico Donut moderno -->
+    <div class="card" style="margin-top:1rem;">
+      <div class="grafico-container">
+        <canvas id="graficoPizza" style="max-width:350px;"></canvas>
+        <div class="grafico-legenda" id="graficoLegenda"></div>
       </div>
     </div>
 
